@@ -78,14 +78,14 @@ fn interactive_mode() -> io::Result<()> {
     // top separator
     println!("---------------");
 
-    // 1) Location
+    //  Location
     print!("Enter safe file path: ");
     io::stdout().flush()?;
     let mut buf = String::new();
     io::stdin().read_line(&mut buf)?;
     let location = PathBuf::from(buf.trim());
 
-    // 2) Key (hidden, with spinner)
+    //  Key (hidden, with spinner)
     let key = {
         let prompt = "Enter key (hidden): ";
         print!("{}", prompt);
@@ -115,7 +115,7 @@ fn interactive_mode() -> io::Result<()> {
         pw
     };
 
-    // 3) Choose action
+    //  Choose action
     let choice = loop {
         print!("Choose [r]ead or [w]rite: ");
         io::stdout().flush()?;
@@ -131,7 +131,7 @@ fn interactive_mode() -> io::Result<()> {
     // separator before result
     println!("---------------");
 
-    // 4) Execute
+    //  Execute
     if choice == "read" {
         let mut safe = SmnSafe::new(key.clone(), &location);
         match safe.load() {
