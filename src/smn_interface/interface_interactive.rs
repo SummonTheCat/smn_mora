@@ -1,18 +1,18 @@
 use std::{
+    fs,
     io::{self, Write},
     path::PathBuf,
+    str,
     sync::{
-        Arc,
         atomic::{AtomicBool, Ordering},
+        Arc,
     },
     thread,
     time::Duration,
-    fs,
 };
 use crate::config::Config;
 use crate::smn_safe::safe_structs::SmnSafe;
 use rpassword::read_password;
-use std::str;
 
 /// Entry point for interactive (no-args) mode
 pub fn run_interactive(cfg: &Config) -> io::Result<()> {
@@ -24,11 +24,11 @@ pub fn run_interactive(cfg: &Config) -> io::Result<()> {
         io::stdout().flush()?;
         let mut buf = String::new();
         io::stdin().read_line(&mut buf)?;
-        
+
         match buf.trim().to_lowercase().as_str() {
-            "r" | "read"  => break "read",
+            "r" | "read" => break "read",
             "w" | "write" => break "write",
-            "l" | "list"  => {
+            "l" | "list" => {
                 println!("\nSafes under {}:", cfg.safe_location.display());
                 fn walk_and_print(base: &PathBuf, dir: &PathBuf) -> io::Result<()> {
                     for entry in fs::read_dir(dir)? {
@@ -83,7 +83,7 @@ pub fn run_interactive(cfg: &Config) -> io::Result<()> {
                 thread::sleep(Duration::from_millis(100));
             }
         });
-        
+
         let pw = read_password().map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
         running.store(false, Ordering::SeqCst);
@@ -111,12 +111,28 @@ pub fn run_interactive(cfg: &Config) -> io::Result<()> {
         }
     } else {
         // write
-        print!("Enter content to write: ");
+        print!("Enter content to write (or `file:/absolute/path`): ");
         io::stdout().flush()?;
         let mut buf = String::new();
         io::stdin().read_line(&mut buf)?;
+        let input = buf.trim();
+
+        // If input starts with `file:`, read that file's contents
+        let content_bytes = if let Some(path_str) = input.strip_prefix("file:") {
+            let file_path = PathBuf::from(path_str);
+            match fs::read(&file_path) {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("❌ Failed to read from file '{}': {}", path_str, e);
+                    return Ok(());
+                }
+            }
+        } else {
+            input.as_bytes().to_vec()
+        };
+
         let mut safe = SmnSafe::new(key.clone(), &full_path);
-        safe.set_content(buf.trim().as_bytes().to_vec());
+        safe.set_content(content_bytes);
         match safe.save() {
             Ok(()) => println!("✅ Written and encrypted to {:?}", full_path),
             Err(e) => eprintln!("❌ Failed to write safe: {}", e),
